@@ -64,13 +64,14 @@ var cornerstone = (function ($, cornerstone) {
     // to the loaded image object or fail if an error occurred.  The image is
     // stored in the cache
     function loadAndCacheImage(imageId, element) {
+
         if(imageId === undefined) {
             throw "loadAndCacheImage: parameter imageId must not be undefined";
         }
 
         var imagePromise = cornerstone.imageCache.getImagePromise(imageId);
         if(imagePromise !== undefined) {
-            return imagePromise;
+         return imagePromise;
         }
 
         imagePromise = loadImageFromImageLoader(imageId);
@@ -78,29 +79,7 @@ var cornerstone = (function ($, cornerstone) {
             throw "loadAndCacheImage: no image loader for imageId";
         }
 
-        // record that this element is waiting for an image
-        var enabledElement = cornerstone.getEnabledElement(element);
-        enabledElement.loadingImageId = imageId;
-
         cornerstone.imageCache.putImagePromise(imageId, imagePromise);
-
-        imagePromise.then(function(image){
-
-            // clear loading imageId
-            enabledElement.loadingImageId = undefined;
-
-            // emit prefetch event
-            var eventData = {
-                image: image,
-                imageId: imageId,
-                enabledElement: cornerstone.getEnabledElement(element),
-                element: element
-            };
-
-            if(element){
-                $(element).trigger("CornerstoneImageLoaded", eventData);
-            }
-        });
 
         return imagePromise;
     }
