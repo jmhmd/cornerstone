@@ -8,6 +8,7 @@ Backlog:
 * Enhance cache to work with multiframe sop instance case
 * [ASM.JS](http://asmjs.org/) version of storedPixelDataToCanvasImageData and generateLut
 * [Native Client](https://developers.google.com/native-client/dev/) version of storedPixelDataToCanvasImageData
+* [SIMD.JS](https://hacks.mozilla.org/2014/10/introducing-simd-js/) version of storedPixelDataToCanvasImageData and generateLut?
 and generateLut
 * Very large image support (e.g. pathology > 4kx4k resolution)
 * Performance related
@@ -22,3 +23,4 @@ and generateLut
 * Consider Prioritized image loading (primary, secondary, thumbnail, prefetch)
 * Packaging/build related
   * AMD wrapper to make it easier to use with AMD loaders
+* Sharing of LUT's between multiple viewports for linked ww/wc use case
