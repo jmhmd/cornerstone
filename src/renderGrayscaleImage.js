@@ -55,7 +55,10 @@ var cornerstone = (function (cornerstone) {
         if(image.imageId !== lastRenderedImageId ||
             lastRenderedViewport.windowCenter !== enabledElement.viewport.voi.windowCenter ||
             lastRenderedViewport.windowWidth !== enabledElement.viewport.voi.windowWidth ||
-            lastRenderedViewport.invert !== enabledElement.viewport.invert
+            lastRenderedViewport.invert !== enabledElement.viewport.invert ||
+            lastRenderedViewport.rotation !== enabledElement.viewport.rotation ||
+            lastRenderedViewport.hflip !== enabledElement.viewport.hflip ||
+            lastRenderedViewport.vflip !== enabledElement.viewport.vflip
             )
         {
             return true;
@@ -81,9 +84,8 @@ var cornerstone = (function (cornerstone) {
 
         // get the lut to use
         var lut = getLut(image, enabledElement.viewport, invalidated);
-
         // gray scale image - apply the lut and put the resulting image onto the render canvas
-        cornerstone.storedPixelDataToCanvasImageData(image.getPixelData(), lut, grayscaleRenderCanvasData.data);
+        cornerstone.storedPixelDataToCanvasImageData(image, lut, grayscaleRenderCanvasData.data);
         grayscaleRenderCanvasContext.putImageData(grayscaleRenderCanvasData, 0, 0);
         return grayscaleRenderCanvas;
     }
@@ -133,6 +135,9 @@ var cornerstone = (function (cornerstone) {
         lastRenderedViewport.windowCenter = enabledElement.viewport.voi.windowCenter;
         lastRenderedViewport.windowWidth = enabledElement.viewport.voi.windowWidth;
         lastRenderedViewport.invert = enabledElement.viewport.invert;
+        lastRenderedViewport.rotation = enabledElement.viewport.rotation;
+        lastRenderedViewport.hflip = enabledElement.viewport.hflip;
+        lastRenderedViewport.vflip = enabledElement.viewport.vflip;
     }
 
     // Module exports
