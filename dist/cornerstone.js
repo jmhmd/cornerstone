@@ -1,4 +1,4 @@
-/*! cornerstone - v0.7.1 - 2015-03-05 | (c) 2014 Chris Hafey | https://github.com/chafey/cornerstone */
+/*! cornerstone - v0.7.1 - 2015-03-10 | (c) 2014 Chris Hafey | https://github.com/chafey/cornerstone */
 var cornerstone = (function (cornerstone) {
 
     "use strict";
@@ -756,6 +756,9 @@ var cornerstone = (function ($, cornerstone) {
         if(loader === undefined || loader === null) {
             if(unknownImageLoader !== undefined) {
                 imagePromise = unknownImageLoader(imageId);
+                imagePromise.then(function(image) {
+                    $(cornerstone).trigger('CornerstoneImageLoaded', {image: image});
+                });
                 return imagePromise;
             }
             else {
@@ -802,8 +805,30 @@ var cornerstone = (function ($, cornerstone) {
             throw "loadAndCacheImage: parameter imageId must not be undefined";
         }
 
+        function triggerEvent(image){
+
+            // clear loading imageId
+            var enabledElement = cornerstone.getEnabledElement(element);
+
+            enabledElement.loadingImageId = undefined;
+
+            // emit prefetch event
+            var eventData = {
+                image: image,
+                imageId: imageId,
+                enabledElement: enabledElement,
+                element: element
+            };
+
+            if(element){
+                $(element).trigger("CornerstoneImageLoaded", eventData);
+            }
+        }
+
         var imagePromise = cornerstone.imageCache.getImagePromise(imageId);
         if(imagePromise !== undefined) {
+
+            imagePromise.then(triggerEvent);
             return imagePromise;
         }
 
@@ -818,23 +843,7 @@ var cornerstone = (function ($, cornerstone) {
 
         cornerstone.imageCache.putImagePromise(imageId, imagePromise);
 
-        imagePromise.then(function(image){
-
-            // clear loading imageId
-            enabledElement.loadingImageId = undefined;
-
-            // emit prefetch event
-            var eventData = {
-                image: image,
-                imageId: imageId,
-                enabledElement: cornerstone.getEnabledElement(element),
-                element: element
-            };
-
-            if(element){
-                $(element).trigger("CornerstoneImageLoaded", eventData);
-            }
-        });
+        imagePromise.then(triggerEvent);
 
         return imagePromise;
     }
