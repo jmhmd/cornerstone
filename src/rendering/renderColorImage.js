@@ -2,13 +2,9 @@
  * This module is responsible for drawing an image to an enabled elements canvas element
  */
 
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     var colorRenderCanvas = document.createElement('canvas');
     var colorRenderCanvasContext;
@@ -54,7 +50,10 @@ var cornerstone = (function (cornerstone) {
         if(image.imageId !== lastRenderedImageId ||
             lastRenderedViewport.windowCenter !== enabledElement.viewport.voi.windowCenter ||
             lastRenderedViewport.windowWidth !== enabledElement.viewport.voi.windowWidth ||
-            lastRenderedViewport.invert !== enabledElement.viewport.invert
+            lastRenderedViewport.invert !== enabledElement.viewport.invert ||
+            lastRenderedViewport.rotation !== enabledElement.viewport.rotation ||  
+            lastRenderedViewport.hflip !== enabledElement.viewport.hflip ||
+            lastRenderedViewport.vflip !== enabledElement.viewport.vflip
             )
         {
             return true;
@@ -146,10 +145,12 @@ var cornerstone = (function (cornerstone) {
         lastRenderedViewport.windowCenter = enabledElement.viewport.voi.windowCenter;
         lastRenderedViewport.windowWidth = enabledElement.viewport.voi.windowWidth;
         lastRenderedViewport.invert = enabledElement.viewport.invert;
+        lastRenderedViewport.rotation = enabledElement.viewport.rotation;
+        lastRenderedViewport.hflip = enabledElement.viewport.hflip;
+        lastRenderedViewport.vflip = enabledElement.viewport.vflip;
     }
 
     // Module exports
+    cornerstone.rendering.colorImage = renderColorImage;
     cornerstone.renderColorImage = renderColorImage;
-
-    return cornerstone;
 }(cornerstone));

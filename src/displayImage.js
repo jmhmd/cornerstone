@@ -1,13 +1,9 @@
 /**
  * This module is responsible for enabling an element to display images with cornerstone
  */
-var cornerstone = (function ($, cornerstone) {
+(function ($, cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * sets a new image object for a given element
@@ -27,7 +23,7 @@ var cornerstone = (function ($, cornerstone) {
         enabledElement.image = image;
 
         if(enabledElement.viewport === undefined) {
-            enabledElement.viewport = cornerstone.getDefaultViewport(enabledElement.canvas, image);
+            enabledElement.viewport = cornerstone.internal.getDefaultViewport(enabledElement.canvas, image);
         }
 
         // merge viewport
@@ -64,6 +60,4 @@ var cornerstone = (function ($, cornerstone) {
 
     // module/private exports
     cornerstone.displayImage = displayImage;
-
-    return cornerstone;
 }($, cornerstone));

@@ -1,13 +1,9 @@
 /**
  * This module returns a subset of the stored pixels of an image
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * Returns an array of stored pixels given a rectangle in the image
@@ -40,6 +36,4 @@ var cornerstone = (function (cornerstone) {
 
     // module exports
     cornerstone.getStoredPixels = getStoredPixels;
-
-    return cornerstone;
 }(cornerstone));

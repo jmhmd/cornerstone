@@ -1,13 +1,9 @@
 /**
  * This module is responsible for enabling an element to display images with cornerstone
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     function enable(element) {
         if(element === undefined) {
@@ -21,6 +17,7 @@ var cornerstone = (function (cornerstone) {
             element: element,
             canvas: canvas,
             image : undefined, // will be set once image is loaded
+            invalid: false, // true if image needs to be drawn, false if not
             data : {}
         };
         cornerstone.addEnabledElement(el);
@@ -32,6 +29,4 @@ var cornerstone = (function (cornerstone) {
 
     // module/private exports
     cornerstone.enable = enable;
-
-    return cornerstone;
 }(cornerstone));

@@ -1,11 +1,52 @@
-/*! cornerstone - v0.5.1 - 2014-11-09 | (c) 2014 Chris Hafey | https://github.com/chafey/cornerstone */
-var cornerstone = (function ($, cornerstone) {
+/*! cornerstone - v0.8.1 - 2015-06-16 | (c) 2014 Chris Hafey | https://github.com/chafey/cornerstone */
+if(typeof cornerstone === 'undefined'){
+    cornerstone = {
+        internal : {},
+        rendering: {}
+    };
+}
+
+(function (cornerstone) {
 
     "use strict";
 
-    if(cornerstone === undefined) {
-        cornerstone = {};
+    function disable(element) {
+        if(element === undefined) {
+            throw "disable: element element must not be undefined";
+        }
+
+        // Search for this element in this list of enabled elements
+        var enabledElements = cornerstone.getEnabledElements();
+        for(var i=0; i < enabledElements.length; i++) {
+            if(enabledElements[i].element === element) {
+                // We found it!
+
+                // Fire an event so dependencies can cleanup
+                var eventData = {
+                    element : element
+                };
+                $(element).trigger("CornerstoneElementDisabled", eventData);
+
+                // remove the child dom elements that we created (e.g.canvas)
+                enabledElements[i].element.removeChild(enabledElements[i].canvas);
+
+                // remove this element from the list of enabled elements
+                enabledElements.splice(i, 1);
+                return;
+            }
+        }
     }
+
+    // module/private exports
+    cornerstone.disable = disable;
+
+}(cornerstone));
+/**
+ * This module is responsible for enabling an element to display images with cornerstone
+ */
+(function ($, cornerstone) {
+
+    "use strict";
 
     /**
      * sets a new image object for a given element
@@ -25,7 +66,7 @@ var cornerstone = (function ($, cornerstone) {
         enabledElement.image = image;
 
         if(enabledElement.viewport === undefined) {
-            enabledElement.viewport = cornerstone.getDefaultViewport(enabledElement.canvas, image);
+            enabledElement.viewport = cornerstone.internal.getDefaultViewport(enabledElement.canvas, image);
         }
 
         // merge viewport
@@ -62,65 +103,65 @@ var cornerstone = (function ($, cornerstone) {
 
     // module/private exports
     cornerstone.displayImage = displayImage;
-
-    return cornerstone;
 }($, cornerstone));
 /**
- * This module is responsible for drawing an image to an enabled elements canvas element
+ * This module is responsible for immediately drawing an enabled element
  */
 
-var cornerstone = (function ($, cornerstone) {
+(function ($, cornerstone) {
 
     "use strict";
 
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
-
     /**
-     * Internal API function to draw an image to a given enabled element
-     * @param enabledElement
-     * @param invalidated - true if pixel data has been invaldiated and cached rendering should not be used
+     * Immediately draws the enabled element
+     *
+     * @param element
      */
-    function drawImage(enabledElement, invalidated) {
+    function draw(element) {
+        var enabledElement = cornerstone.getEnabledElement(element);
 
-        var start = new Date();
+        if(enabledElement.image === undefined) {
+            throw "draw: image has not been loaded yet";
+        }
 
-        enabledElement.image.render(enabledElement, invalidated);
-
-        var context = enabledElement.canvas.getContext('2d');
-
-        var end = new Date();
-        var diff = end - start;
-        //console.log(diff + ' ms');
-
-        var eventData = {
-            viewport : enabledElement.viewport,
-            element : enabledElement.element,
-            image : enabledElement.image,
-            enabledElement : enabledElement,
-            canvasContext: context,
-            renderTimeInMs : diff
-        };
-
-        $(enabledElement.element).trigger("CornerstoneImageRendered", eventData);
+        cornerstone.drawImage(enabledElement);
     }
 
     // Module exports
-    cornerstone.drawImage = drawImage;
+    cornerstone.draw = draw;
 
-    return cornerstone;
+}($, cornerstone));
+/**
+ * This module is responsible for drawing invalidated enabled elements
+ */
+
+(function ($, cornerstone) {
+
+    "use strict";
+
+    /**
+     * Draws all invalidated enabled elements and clears the invalid flag after drawing it
+     */
+    function drawInvalidated()
+    {
+        var enabledElements = cornerstone.getEnabledElements();
+        for(var i=0;i < enabledElements.length; i++) {
+            var ee = enabledElements[i];
+            if(ee.invalid === true) {
+                cornerstone.drawImage(ee);
+            }
+        }
+    }
+
+    // Module exports
+    cornerstone.drawInvalidated = drawInvalidated;
 }($, cornerstone));
 /**
  * This module is responsible for enabling an element to display images with cornerstone
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     function enable(element) {
         if(element === undefined) {
@@ -134,6 +175,7 @@ var cornerstone = (function (cornerstone) {
             element: element,
             canvas: canvas,
             image : undefined, // will be set once image is loaded
+            invalid: false, // true if image needs to be drawn, false if not
             data : {}
         };
         cornerstone.addEnabledElement(el);
@@ -145,16 +187,10 @@ var cornerstone = (function (cornerstone) {
 
     // module/private exports
     cornerstone.enable = enable;
-
-    return cornerstone;
 }(cornerstone));
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     function getElementData(el, dataType) {
         var ee = cornerstone.getEnabledElement(el);
@@ -174,15 +210,10 @@ var cornerstone = (function (cornerstone) {
     cornerstone.getElementData = getElementData;
     cornerstone.removeElementData = removeElementData;
 
-    return cornerstone;
 }(cornerstone));
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     var enabledElements = [];
 
@@ -207,20 +238,6 @@ var cornerstone = (function (cornerstone) {
         enabledElements.push(enabledElement);
     }
 
-    function disable(element) {
-        if(element === undefined) {
-            throw "disable: element element must not be undefined";
-        }
-
-        for(var i=0; i < enabledElements.length; i++) {
-            if(enabledElements[i].element === element) {
-                enabledElements[i].element.removeChild(enabledElements[i].canvas);
-                enabledElements.splice(i, 1);
-                return;
-            }
-        }
-    }
-
     function getEnabledElementsByImageId(imageId) {
         var ees = [];
         enabledElements.forEach(function(enabledElement) {
@@ -231,26 +248,23 @@ var cornerstone = (function (cornerstone) {
         return ees;
     }
 
+    function getEnabledElements() {
+        return enabledElements;
+    }
 
     // module/private exports
     cornerstone.getEnabledElement = getEnabledElement;
     cornerstone.addEnabledElement = addEnabledElement;
-    cornerstone.disable = disable;
     cornerstone.getEnabledElementsByImageId = getEnabledElementsByImageId;
-
-    return cornerstone;
+    cornerstone.getEnabledElements = getEnabledElements;
 }(cornerstone));
 /**
  * This module will fit an image to fit inside the canvas displaying it such that all pixels
  * in the image are viewable
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * Adjusts an images scale and center so the image is centered and completely visible
@@ -259,154 +273,99 @@ var cornerstone = (function (cornerstone) {
     function fitToWindow(element)
     {
         var enabledElement = cornerstone.getEnabledElement(element);
-        var defaultViewport = cornerstone.getDefaultViewport(enabledElement.canvas, enabledElement.image);
+        var defaultViewport = cornerstone.internal.getDefaultViewport(enabledElement.canvas, enabledElement.image);
         enabledElement.viewport.scale = defaultViewport.scale;
         enabledElement.viewport.translation.x = defaultViewport.translation.x;
         enabledElement.viewport.translation.y = defaultViewport.translation.y;
+        enabledElement.viewport.rotation = defaultViewport.rotation;
+        enabledElement.viewport.hflip = defaultViewport.hflip;
+        enabledElement.viewport.vflip = defaultViewport.vflip;
         cornerstone.updateImage(element);
     }
 
     cornerstone.fitToWindow = fitToWindow;
-
-    return cornerstone;
 }(cornerstone));
+
 /**
- * This module generates a lut for an image
+ * This file is responsible for returning the default viewport for an image
  */
 
-var cornerstone = (function (cornerstone) {
+(function ($, cornerstone) {
 
     "use strict";
 
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
-
     /**
-     * Creates a LUT used while rendering to convert stored pixel values to
-     * display pixels
+     * returns a default viewport for display the specified image on the specified
+     * enabled element.  The default viewport is fit to window
      *
+     * @param element
      * @param image
-     * @returns {Array}
      */
-    function generateLut(image, windowWidth, windowCenter, invert)
-    {
-        if(image.lut === undefined) {
-            image.lut =  new Int16Array(image.maxPixelValue - Math.min(image.minPixelValue,0));
-        }
-        var lut = image.lut;
-
-        var maxPixelValue = image.maxPixelValue;
-        var minPixelValue = image.minPixelValue;
-        var slope = image.slope;
-        var intercept = image.intercept;
-        var localWindowWidth = windowWidth;
-        var localWindowCenter = windowCenter;
-
-        var modalityLutValue;
-        var voiLutValue;
-        var clampedValue;
-        var storedValue;
-
-        // NOTE: As of Nov 2014, most javascript engines have lower performance when indexing negative indexes.
-        // We improve performance by offsetting the pixel values for signed data to avoid negative indexes
-        // when generating the lut and then undo it in storedPixelDataToCanvasImagedata.  Thanks to @jpambrun
-        // for this contibution!
-
-        if(invert === true) {
-            for(storedValue = image.minPixelValue; storedValue <= maxPixelValue; storedValue++)
-            {
-                modalityLutValue = storedValue * slope + intercept;
-                voiLutValue = (((modalityLutValue - (localWindowCenter)) / (localWindowWidth) + 0.5) * 255.0);
-                clampedValue = Math.min(Math.max(voiLutValue, 0), 255);
-                lut[storedValue + (-minPixelValue)] = Math.round(255 - clampedValue);
-            }
-        }
-        else {
-            for(storedValue = image.minPixelValue; storedValue <= maxPixelValue; storedValue++)
-            {
-                modalityLutValue = storedValue * slope + intercept;
-                voiLutValue = (((modalityLutValue - (localWindowCenter)) / (localWindowWidth) + 0.5) * 255.0);
-                clampedValue = Math.min(Math.max(voiLutValue, 0), 255);
-                lut[storedValue+ (-minPixelValue)] = Math.round(clampedValue);
-            }
-        }
-    }
-
-
-    // Module exports
-    cornerstone.generateLut = generateLut;
-
-    return cornerstone;
-}(cornerstone));
-
-/**
- * This module contains a function to get a default viewport for an image given
- * a canvas element to display it in
- *
- */
-var cornerstone = (function (cornerstone) {
-
-    "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
-
-    /**
-     * Creates a new viewport object containing default values for the image and canvas
-     * @param canvas
-     * @param image
-     * @returns viewport object
-     */
-    function getDefaultViewport(canvas, image) {
-        if(canvas === undefined) {
-            throw "getDefaultViewport: parameter canvas must not be undefined";
-        }
-        if(image === undefined) {
-            throw "getDefaultViewport: parameter image must not be undefined";
-        }
-        var viewport = {
-            scale : 1.0,
-            translation : {
-                x : 0,
-                y : 0
-            },
-            voi : {
-                windowWidth: image.windowWidth,
-                windowCenter: image.windowCenter,
-            },
-            invert: image.invert,
-            pixelReplication: false
-        };
-
-        // fit image to window
-        var verticalScale = canvas.height / image.rows;
-        var horizontalScale= canvas.width / image.columns;
-        if(horizontalScale < verticalScale) {
-            viewport.scale = horizontalScale;
-        }
-        else {
-            viewport.scale = verticalScale;
-        }
+    function getDefaultViewportForImage(element, image) {
+        var enabledElement = cornerstone.getEnabledElement(element);
+        var viewport = cornerstone.internal.getDefaultViewport(enabledElement.canvas, image);
         return viewport;
     }
 
-    // module/private exports
-    cornerstone.getDefaultViewport = getDefaultViewport;
+    // Module exports
+    cornerstone.getDefaultViewportForImage = getDefaultViewportForImage;
+}($, cornerstone));
+/**
+ * This module is responsible for returning the currently displayed image for an element
+ */
 
-    return cornerstone;
+(function ($, cornerstone) {
+
+    "use strict";
+
+    /**
+     * returns the currently displayed image for an element or undefined if no image has
+     * been displayed yet
+     *
+     * @param element
+     */
+    function getImage(element) {
+        var enabledElement = cornerstone.getEnabledElement(element);
+        return enabledElement.image;
+    }
+
+    // Module exports
+    cornerstone.getImage = getImage;
+}($, cornerstone));
+/**
+ * This module returns a subset of the stored pixels of an image
+ */
+(function (cornerstone) {
+
+    "use strict";
+
+
+    /**
+     * Returns array of pixels with modality LUT transformation applied
+     */
+    function getPixels(element, x, y, width, height) {
+
+        var storedPixels = cornerstone.getStoredPixels(element, x, y, width, height);
+        var ee = cornerstone.getEnabledElement(element);
+        var slope = ee.image.slope;
+        var intercept = ee.image.intercept;
+
+        var modalityPixels = storedPixels.map(function(pixel){
+            return pixel * slope + intercept;
+        });
+
+        return modalityPixels;
+    }
+
+    // module exports
+    cornerstone.getPixels = getPixels;
 }(cornerstone));
 /**
  * This module returns a subset of the stored pixels of an image
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * Returns an array of stored pixels given a rectangle in the image
@@ -439,20 +398,56 @@ var cornerstone = (function (cornerstone) {
 
     // module exports
     cornerstone.getStoredPixels = getStoredPixels;
-
-    return cornerstone;
 }(cornerstone));
+/**
+ * This module contains functions to deal with getting and setting the viewport for an enabled element
+ */
+(function (cornerstone) {
+
+    "use strict";
+
+    /**
+     * Returns the viewport for the specified enabled element
+     * @param element
+     * @returns {*}
+     */
+    function getViewport(element) {
+        var enabledElement = cornerstone.getEnabledElement(element);
+
+        var viewport = enabledElement.viewport;
+        if(viewport === undefined) {
+            return undefined;
+        }
+        return {
+            scale : viewport.scale,
+            translation : {
+                x : viewport.translation.x,
+                y : viewport.translation.y
+            },
+            voi : {
+                windowWidth: viewport.voi.windowWidth,
+                windowCenter : viewport.voi.windowCenter
+            },
+            invert : viewport.invert,
+            pixelReplication: viewport.pixelReplication,
+            rotation: viewport.rotation, 
+            hflip: viewport.hflip,
+            vflip: viewport.vflip
+        };
+    }
+
+    // module/private exports
+    cornerstone.getViewport = getViewport;
+
+}(cornerstone));
+
 /**
  * This module deals with caching images
  */
 
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     var imageCache = {
     };
@@ -477,7 +472,7 @@ var cornerstone = (function (cornerstone) {
 
     function purgeCacheIfNecessary()
     {
-        // if max cache size has not been exceded, do nothing
+        // if max cache size has not been exceeded, do nothing
         if(cacheSizeInBytes <= maximumSizeInBytes)
         {
             return;
@@ -502,6 +497,7 @@ var cornerstone = (function (cornerstone) {
             var lastCachedImage = cachedImages[cachedImages.length - 1];
             cacheSizeInBytes -= lastCachedImage.sizeInBytes;
             delete imageCache[lastCachedImage.imageId];
+            lastCachedImage.imagePromise.reject();
             cachedImages.pop();
         }
     }
@@ -521,6 +517,7 @@ var cornerstone = (function (cornerstone) {
         }
 
         var cachedImage = {
+            loaded : false,
             imageId : imageId,
             imagePromise : imagePromise,
             timeStamp : new Date(),
@@ -561,6 +558,21 @@ var cornerstone = (function (cornerstone) {
         return cachedImage.imagePromise;
     }
 
+    function removeImagePromise(imageId) {
+        if(imageId === undefined) {
+            throw "removeImagePromise: imageId must not be undefined";
+        }
+        var cachedImage = imageCache[imageId];
+        if(cachedImage === undefined) {
+            throw "removeImagePromise: imageId must not be undefined";
+        }
+        cachedImages.splice( cachedImages.indexOf(cachedImage), 1);
+        cacheSizeInBytes -= cachedImage.sizeInBytes;
+        delete imageCache[imageId];
+
+        return cachedImage.imagePromise;
+    }
+
     function getCacheInfo() {
         return {
             maximumSizeInBytes : maximumSizeInBytes,
@@ -570,10 +582,12 @@ var cornerstone = (function (cornerstone) {
     }
 
     function purgeCache() {
-        var oldMaximumSizeInBytes = maximumSizeInBytes;
-        maximumSizeInBytes = 0;
-        purgeCacheIfNecessary();
-        maximumSizeInBytes = oldMaximumSizeInBytes;
+        while (cachedImages.length > 0) {
+            var removedCachedImage = cachedImages.pop();
+            delete imageCache[removedCachedImage.imageId];
+            removedCachedImage.imagePromise.reject();
+        }
+        cacheSizeInBytes = 0;
     }
 
     // module exports
@@ -581,24 +595,20 @@ var cornerstone = (function (cornerstone) {
     cornerstone.imageCache = {
         putImagePromise : putImagePromise,
         getImagePromise: getImagePromise,
+        removeImagePromise: removeImagePromise,
         setMaximumSizeBytes: setMaximumSizeBytes,
         getCacheInfo : getCacheInfo,
         purgeCache: purgeCache
     };
-
-    return cornerstone;
 }(cornerstone));
+
 /**
  * This module deals with ImageLoaders, loading images and caching images
  */
 
-var cornerstone = (function ($, cornerstone) {
+(function ($, cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     var imageLoaders = {};
 
@@ -694,19 +704,514 @@ var cornerstone = (function ($, cornerstone) {
     cornerstone.registerImageLoader = registerImageLoader;
     cornerstone.registerUnknownImageLoader = registerUnknownImageLoader;
 
-    return cornerstone;
 }($, cornerstone));
 
-/**
- * This module contains a function to immediately invalidate an image
- */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
 
-    if(cornerstone === undefined) {
-        cornerstone = {};
+    function calculateTransform(enabledElement, scale) {
+
+        var transform = new cornerstone.internal.Transform();
+        transform.translate(enabledElement.canvas.width/2, enabledElement.canvas.height / 2);
+
+        //Apply the rotation before scaling for non square pixels
+        var angle = enabledElement.viewport.rotation;
+        if(angle!==0) {
+            transform.rotate(angle*Math.PI/180);
+        }
+
+        // apply the scale
+        var widthScale = enabledElement.viewport.scale;
+        var heightScale = enabledElement.viewport.scale;
+        if(enabledElement.image.rowPixelSpacing < enabledElement.image.columnPixelSpacing) {
+            widthScale = widthScale * (enabledElement.image.columnPixelSpacing / enabledElement.image.rowPixelSpacing);
+        }
+        else if(enabledElement.image.columnPixelSpacing < enabledElement.image.rowPixelSpacing) {
+            heightScale = heightScale * (enabledElement.image.rowPixelSpacing / enabledElement.image.columnPixelSpacing);
+        }
+        transform.scale(widthScale, heightScale);
+
+        // unrotate to so we can translate unrotated
+        if(angle!==0) {
+            transform.rotate(-angle*Math.PI/180);
+        }
+
+        // apply the pan offset
+        transform.translate(enabledElement.viewport.translation.x, enabledElement.viewport.translation.y);
+
+        // rotate again so we can apply general scale
+        if(angle!==0) {
+            transform.rotate(angle*Math.PI/180);
+        }
+
+        if(scale !== undefined) {
+            // apply the font scale
+            transform.scale(scale, scale);
+        }
+
+        //Apply Flip if required
+        if(enabledElement.viewport.hflip) {
+            transform.scale(-1,1);
+        }
+
+        if(enabledElement.viewport.vflip) {
+            transform.scale(1,-1);
+        }
+
+        // translate the origin back to the corner of the image so the event handlers can draw in image coordinate system
+        transform.translate(-enabledElement.image.width / 2 , -enabledElement.image.height/ 2);
+        return transform;
     }
+
+    // Module exports
+    cornerstone.internal.calculateTransform = calculateTransform;
+}(cornerstone));
+/**
+ * This module is responsible for drawing an image to an enabled elements canvas element
+ */
+
+(function ($, cornerstone) {
+
+    "use strict";
+
+    /**
+     * Internal API function to draw an image to a given enabled element
+     * @param enabledElement
+     * @param invalidated - true if pixel data has been invalidated and cached rendering should not be used
+     */
+    function drawImage(enabledElement, invalidated) {
+
+        var start = new Date();
+
+        enabledElement.image.render(enabledElement, invalidated);
+
+        var context = enabledElement.canvas.getContext('2d');
+
+        var end = new Date();
+        var diff = end - start;
+        //console.log(diff + ' ms');
+
+        var eventData = {
+            viewport : enabledElement.viewport,
+            element : enabledElement.element,
+            image : enabledElement.image,
+            enabledElement : enabledElement,
+            canvasContext: context,
+            renderTimeInMs : diff
+        };
+
+        $(enabledElement.element).trigger("CornerstoneImageRendered", eventData);
+        enabledElement.invalid = false;
+    }
+
+    // Module exports
+    cornerstone.internal.drawImage = drawImage;
+    cornerstone.drawImage = drawImage;
+
+}($, cornerstone));
+/**
+ * This module generates a lut for an image
+ */
+
+(function (cornerstone) {
+
+    "use strict";
+
+    /**
+     * Creates a LUT used while rendering to convert stored pixel values to
+     * display pixels
+     *
+     * @param image
+     * @returns {Array}
+     */
+    function generateLut(image, windowWidth, windowCenter, invert)
+    {
+        if(image.lut === undefined) {
+            image.lut =  new Int16Array(image.maxPixelValue - Math.min(image.minPixelValue,0)+1);
+        }
+        var lut = image.lut;
+
+        var maxPixelValue = image.maxPixelValue;
+        var minPixelValue = image.minPixelValue;
+        var slope = image.slope;
+        var intercept = image.intercept;
+        var localWindowWidth = windowWidth;
+        var localWindowCenter = windowCenter;
+
+        var modalityLutValue;
+        var voiLutValue;
+        var clampedValue;
+        var storedValue;
+
+        // NOTE: As of Nov 2014, most javascript engines have lower performance when indexing negative indexes.
+        // We improve performance by offsetting the pixel values for signed data to avoid negative indexes
+        // when generating the lut and then undo it in storedPixelDataToCanvasImagedata.  Thanks to @jpambrun
+        // for this contribution!
+
+        var offset = 0;
+        if(minPixelValue < 0) {
+            offset = minPixelValue;
+        }
+
+        if(invert === true) {
+            for(storedValue = image.minPixelValue; storedValue <= maxPixelValue; storedValue++)
+            {
+                modalityLutValue = storedValue * slope + intercept;
+                voiLutValue = (((modalityLutValue - (localWindowCenter)) / (localWindowWidth) + 0.5) * 255.0);
+                clampedValue = Math.min(Math.max(voiLutValue, 0), 255);
+                lut[storedValue + (-offset)] = Math.round(255 - clampedValue);
+            }
+        }
+        else {
+            for(storedValue = image.minPixelValue; storedValue <= maxPixelValue; storedValue++)
+            {
+                modalityLutValue = storedValue * slope + intercept;
+                voiLutValue = (((modalityLutValue - (localWindowCenter)) / (localWindowWidth) + 0.5) * 255.0);
+                clampedValue = Math.min(Math.max(voiLutValue, 0), 255);
+                lut[storedValue+ (-offset)] = Math.round(clampedValue);
+            }
+        }
+    }
+
+
+    // Module exports
+    cornerstone.internal.generateLut = generateLut;
+    cornerstone.generateLut = generateLut;
+}(cornerstone));
+
+/**
+ * This module contains a function to get a default viewport for an image given
+ * a canvas element to display it in
+ *
+ */
+(function (cornerstone) {
+
+    "use strict";
+
+    /**
+     * Creates a new viewport object containing default values for the image and canvas
+     * @param canvas
+     * @param image
+     * @returns viewport object
+     */
+    function getDefaultViewport(canvas, image) {
+        if(canvas === undefined) {
+            throw "getDefaultViewport: parameter canvas must not be undefined";
+        }
+        if(image === undefined) {
+            throw "getDefaultViewport: parameter image must not be undefined";
+        }
+        var viewport = {
+            scale : 1.0,
+            translation : {
+                x : 0,
+                y : 0
+            },
+            voi : {
+                windowWidth: image.windowWidth,
+                windowCenter: image.windowCenter,
+            },
+            invert: image.invert,
+            pixelReplication: false,
+            rotation: 0,
+            hflip: false,
+            vflip: false
+        };
+
+        // fit image to window
+        var verticalScale = canvas.height / image.rows;
+        var horizontalScale= canvas.width / image.columns;
+        if(horizontalScale < verticalScale) {
+            viewport.scale = horizontalScale;
+        }
+        else {
+            viewport.scale = verticalScale;
+        }
+        return viewport;
+    }
+
+    // module/private exports
+    cornerstone.internal.getDefaultViewport = getDefaultViewport;
+    cornerstone.getDefaultViewport = getDefaultViewport;
+}(cornerstone));
+
+(function (cornerstone) {
+
+    "use strict";
+
+    function getTransform(enabledElement)
+    {
+        // For now we will calculate it every time it is requested.  In the future, we may want to cache
+        // it in the enabled element to speed things up
+        var transform = cornerstone.internal.calculateTransform(enabledElement);
+        return transform;
+    }
+
+    // Module exports
+    cornerstone.internal.getTransform = getTransform;
+
+}(cornerstone));
+/**
+ * This module is responsible for drawing an image to an enabled elements canvas element
+ */
+
+(function ($, cornerstone) {
+
+    "use strict";
+
+    cornerstone.drawImage = cornerstone.internal.drawImage;
+    cornerstone.generateLut = cornerstone.internal.generateLut;
+    cornerstone.storedPixelDataToCanvasImageData = cornerstone.internal.storedPixelDataToCanvasImageData;
+    cornerstone.storedColorPixelDataToCanvasImageData = cornerstone.internal.storedColorPixelDataToCanvasImageData;
+
+}($, cornerstone));
+/**
+ * This module contains a function to convert stored pixel values to display pixel values using a LUT
+ */
+(function (cornerstone) {
+
+    "use strict";
+
+    function storedColorPixelDataToCanvasImageData(image, lut, canvasImageDataData)
+    {
+        var minPixelValue = image.minPixelValue;
+        var canvasImageDataIndex = 0;
+        var storedPixelDataIndex = 0;
+        var numPixels = image.width * image.height * 4;
+        var storedPixelData = image.getPixelData();
+        var localLut = lut;
+        var localCanvasImageDataData = canvasImageDataData;
+        // NOTE: As of Nov 2014, most javascript engines have lower performance when indexing negative indexes.
+        // We have a special code path for this case that improves performance.  Thanks to @jpambrun for this enhancement
+        if(minPixelValue < 0){
+            while(storedPixelDataIndex < numPixels) {
+                localCanvasImageDataData[canvasImageDataIndex++] = localLut[storedPixelData[storedPixelDataIndex++] + (-minPixelValue)]; // red
+                localCanvasImageDataData[canvasImageDataIndex++] = localLut[storedPixelData[storedPixelDataIndex++] + (-minPixelValue)]; // green
+                localCanvasImageDataData[canvasImageDataIndex] = localLut[storedPixelData[storedPixelDataIndex] + (-minPixelValue)]; // blue
+                storedPixelDataIndex+=2;
+                canvasImageDataIndex+=2;
+            }
+        }else{
+            while(storedPixelDataIndex < numPixels) {
+                localCanvasImageDataData[canvasImageDataIndex++] = localLut[storedPixelData[storedPixelDataIndex++]]; // red
+                localCanvasImageDataData[canvasImageDataIndex++] = localLut[storedPixelData[storedPixelDataIndex++]]; // green
+                localCanvasImageDataData[canvasImageDataIndex] = localLut[storedPixelData[storedPixelDataIndex]]; // blue
+                storedPixelDataIndex+=2;
+                canvasImageDataIndex+=2;
+            }
+        }
+    }
+
+    // Module exports
+    cornerstone.internal.storedColorPixelDataToCanvasImageData = storedColorPixelDataToCanvasImageData;
+    cornerstone.storedColorPixelDataToCanvasImageData = storedColorPixelDataToCanvasImageData;
+
+}(cornerstone));
+
+/**
+ * This module contains a function to convert stored pixel values to display pixel values using a LUT
+ */
+(function (cornerstone) {
+
+    "use strict";
+
+    /**
+     * This function transforms stored pixel values into a canvas image data buffer
+     * by using a LUT.  This is the most performance sensitive code in cornerstone and
+     * we use a special trick to make this go as fast as possible.  Specifically we
+     * use the alpha channel only to control the luminance rather than the red, green and
+     * blue channels which makes it over 3x faster.  The canvasImageDataData buffer needs
+     * to be previously filled with white pixels.
+     *
+     * NOTE: Attribution would be appreciated if you use this technique!
+     *
+     * @param pixelData the pixel data
+     * @param lut the lut
+     * @param canvasImageDataData a canvasImgageData.data buffer filled with white pixels
+     */
+    function storedPixelDataToCanvasImageData(image, lut, canvasImageDataData)
+    {
+        var pixelData = image.getPixelData();
+        var minPixelValue = image.minPixelValue;
+        var canvasImageDataIndex = 3;
+        var storedPixelDataIndex = 0;
+        var localNumPixels = pixelData.length;
+        var localPixelData = pixelData;
+        var localLut = lut;
+        var localCanvasImageDataData = canvasImageDataData;
+        // NOTE: As of Nov 2014, most javascript engines have lower performance when indexing negative indexes.
+        // We have a special code path for this case that improves performance.  Thanks to @jpambrun for this enhancement
+        if(minPixelValue < 0){
+            while(storedPixelDataIndex < localNumPixels) {
+                localCanvasImageDataData[canvasImageDataIndex] = localLut[localPixelData[storedPixelDataIndex++] + (-minPixelValue)]; // alpha
+                canvasImageDataIndex += 4;
+            }
+        }else{
+            while(storedPixelDataIndex < localNumPixels) {
+                localCanvasImageDataData[canvasImageDataIndex] = localLut[localPixelData[storedPixelDataIndex++]]; // alpha
+                canvasImageDataIndex += 4;
+            }
+        }
+    }
+
+    // Module exports
+    cornerstone.internal.storedPixelDataToCanvasImageData = storedPixelDataToCanvasImageData;
+    cornerstone.storedPixelDataToCanvasImageData = storedPixelDataToCanvasImageData;
+
+}(cornerstone));
+
+// Last updated November 2011
+// By Simon Sarris
+// www.simonsarris.com
+// sarris@acm.org
+//
+// Free to use and distribute at will
+// So long as you are nice to people, etc
+
+// Simple class for keeping track of the current transformation matrix
+
+// For instance:
+//    var t = new Transform();
+//    t.rotate(5);
+//    var m = t.m;
+//    ctx.setTransform(m[0], m[1], m[2], m[3], m[4], m[5]);
+
+// Is equivalent to:
+//    ctx.rotate(5);
+
+// But now you can retrieve it :)
+
+(function (cornerstone) {
+
+    "use strict";
+
+
+    // Remember that this does not account for any CSS transforms applied to the canvas
+    function Transform() {
+        this.reset();
+    }
+
+    Transform.prototype.reset = function() {
+        this.m = [1,0,0,1,0,0];
+    };
+
+    Transform.prototype.clone = function() {
+        var transform = new Transform();
+        transform.m[0] = this.m[0];
+        transform.m[1] = this.m[1];
+        transform.m[2] = this.m[2];
+        transform.m[3] = this.m[3];
+        transform.m[4] = this.m[4];
+        transform.m[5] = this.m[5];
+        return transform;
+    };
+
+
+    Transform.prototype.multiply = function(matrix) {
+        var m11 = this.m[0] * matrix.m[0] + this.m[2] * matrix.m[1];
+        var m12 = this.m[1] * matrix.m[0] + this.m[3] * matrix.m[1];
+
+        var m21 = this.m[0] * matrix.m[2] + this.m[2] * matrix.m[3];
+        var m22 = this.m[1] * matrix.m[2] + this.m[3] * matrix.m[3];
+
+        var dx = this.m[0] * matrix.m[4] + this.m[2] * matrix.m[5] + this.m[4];
+        var dy = this.m[1] * matrix.m[4] + this.m[3] * matrix.m[5] + this.m[5];
+
+        this.m[0] = m11;
+        this.m[1] = m12;
+        this.m[2] = m21;
+        this.m[3] = m22;
+        this.m[4] = dx;
+        this.m[5] = dy;
+    };
+
+    Transform.prototype.invert = function() {
+        var d = 1 / (this.m[0] * this.m[3] - this.m[1] * this.m[2]);
+        var m0 = this.m[3] * d;
+        var m1 = -this.m[1] * d;
+        var m2 = -this.m[2] * d;
+        var m3 = this.m[0] * d;
+        var m4 = d * (this.m[2] * this.m[5] - this.m[3] * this.m[4]);
+        var m5 = d * (this.m[1] * this.m[4] - this.m[0] * this.m[5]);
+        this.m[0] = m0;
+        this.m[1] = m1;
+        this.m[2] = m2;
+        this.m[3] = m3;
+        this.m[4] = m4;
+        this.m[5] = m5;
+    };
+
+    Transform.prototype.rotate = function(rad) {
+        var c = Math.cos(rad);
+        var s = Math.sin(rad);
+        var m11 = this.m[0] * c + this.m[2] * s;
+        var m12 = this.m[1] * c + this.m[3] * s;
+        var m21 = this.m[0] * -s + this.m[2] * c;
+        var m22 = this.m[1] * -s + this.m[3] * c;
+        this.m[0] = m11;
+        this.m[1] = m12;
+        this.m[2] = m21;
+        this.m[3] = m22;
+    };
+
+    Transform.prototype.translate = function(x, y) {
+        this.m[4] += this.m[0] * x + this.m[2] * y;
+        this.m[5] += this.m[1] * x + this.m[3] * y;
+    };
+
+    Transform.prototype.scale = function(sx, sy) {
+        this.m[0] *= sx;
+        this.m[1] *= sx;
+        this.m[2] *= sy;
+        this.m[3] *= sy;
+    };
+
+<<<<<<< HEAD
+    return cornerstone;
+}($, cornerstone));
+
+=======
+    Transform.prototype.transformPoint = function(px, py) {
+        var x = px;
+        var y = py;
+        px = x * this.m[0] + y * this.m[2] + this.m[4];
+        py = x * this.m[1] + y * this.m[3] + this.m[5];
+        return {x: px, y: py};
+    };
+
+    cornerstone.internal.Transform = Transform;
+}(cornerstone));
+>>>>>>> d2393c4b352ab6b34735ee820b7fe41dc7843e9c
+/**
+ * This module contains a function to make an image is invalid
+ */
+(function (cornerstone) {
+
+    "use strict";
+
+    /**
+     * Sets the invalid flag on the enabled element and fire an event
+     * @param element
+     */
+    function invalidate(element) {
+        var enabledElement = cornerstone.getEnabledElement(element);
+        enabledElement.invalid = true;
+        var eventData = {
+            element: element
+        };
+        $(enabledElement.element).trigger("CornerstoneInvalidated", eventData);
+    }
+
+    // module exports
+    cornerstone.invalidate = invalidate;
+}(cornerstone));
+/**
+ * This module contains a function to immediately invalidate an image
+ */
+(function (cornerstone) {
+
+    "use strict";
 
     /**
      * Forces the image to be updated/redrawn for the specified enabled element
@@ -722,19 +1227,13 @@ var cornerstone = (function (cornerstone) {
 
     // module exports
     cornerstone.invalidateImageId = invalidateImageId;
-
-    return cornerstone;
 }(cornerstone));
 /**
  * This module contains a helper function to covert page coordinates to pixel coordinates
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * Converts a point in the page coordinate system to the pixel coordinate
@@ -744,71 +1243,61 @@ var cornerstone = (function (cornerstone) {
      * @param pageY
      * @returns {{x: number, y: number}}
      */
-
     function pageToPixel(element, pageX, pageY) {
-        var ee = cornerstone.getEnabledElement(element);
+        var enabledElement = cornerstone.getEnabledElement(element);
 
-        if(ee.image === undefined) {
+        if(enabledElement.image === undefined) {
             throw "image has not been loaded yet";
         }
 
-        // TODO: replace this with a transformation matrix
+        var image = enabledElement.image;
 
         // convert the pageX and pageY to the canvas client coordinates
         var rect = element.getBoundingClientRect();
         var clientX = pageX - rect.left - window.pageXOffset;
         var clientY = pageY - rect.top - window.pageYOffset;
 
-        // translate the client relative to the middle of the canvas
-        var middleX = clientX - rect.width / 2.0;
-        var middleY = clientY - rect.height / 2.0;
-
-        // scale to image coordinates middleX/middleY
-        var viewport = ee.viewport;
-
-        // apply the scale
-        var widthScale = ee.viewport.scale;
-        var heightScale = ee.viewport.scale;
-        if(ee.image.rowPixelSpacing < ee.image.columnPixelSpacing) {
-            widthScale = widthScale * (ee.image.columnPixelSpacing / ee.image.rowPixelSpacing);
-        }
-        else if(ee.image.columnPixelSpacing < ee.image.rowPixelSpacing) {
-            heightScale = heightScale * (ee.image.rowPixelSpacing / ee.image.columnPixelSpacing);
-        }
-
-        var scaledMiddleX = middleX / widthScale;
-        var scaledMiddleY = middleY / heightScale;
-
-        // apply pan offset
-        var imageX = scaledMiddleX - viewport.translation.x;
-        var imageY = scaledMiddleY - viewport.translation.y;
-
-        // translate to image top left
-        imageX += ee.image.columns / 2;
-        imageY += ee.image.rows / 2;
-
-        return {
-            x: imageX,
-            y: imageY
-        };
+        var pt = {x: clientX, y: clientY};
+        var transform = cornerstone.internal.getTransform(enabledElement);
+        transform.invert();
+        return transform.transformPoint(pt.x, pt.y);
     }
 
     // module/private exports
     cornerstone.pageToPixel = pageToPixel;
 
-    return cornerstone;
 }(cornerstone));
+
+(function (cornerstone) {
+
+    "use strict";
+
+    /**
+     * Converts a point in the pixel coordinate system to the canvas coordinate system
+     * system.  This can be used to render using canvas context without having the weird
+     * side effects that come from scaling and non square pixels
+     * @param element
+     * @param pt
+     * @returns {x: number, y: number}
+     */
+    function pixelToCanvas(element, pt) {
+        var enabledElement = cornerstone.getEnabledElement(element);
+        var transform = cornerstone.internal.getTransform(enabledElement);
+        return transform.transformPoint(pt.x, pt.y);
+    }
+
+    // module/private exports
+    cornerstone.pixelToCanvas = pixelToCanvas;
+
+}(cornerstone));
+
 /**
  * This module is responsible for drawing an image to an enabled elements canvas element
  */
 
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     var colorRenderCanvas = document.createElement('canvas');
     var colorRenderCanvasContext;
@@ -854,7 +1343,10 @@ var cornerstone = (function (cornerstone) {
         if(image.imageId !== lastRenderedImageId ||
             lastRenderedViewport.windowCenter !== enabledElement.viewport.voi.windowCenter ||
             lastRenderedViewport.windowWidth !== enabledElement.viewport.voi.windowWidth ||
-            lastRenderedViewport.invert !== enabledElement.viewport.invert
+            lastRenderedViewport.invert !== enabledElement.viewport.invert ||
+            lastRenderedViewport.rotation !== enabledElement.viewport.rotation ||  
+            lastRenderedViewport.hflip !== enabledElement.viewport.hflip ||
+            lastRenderedViewport.vflip !== enabledElement.viewport.vflip
             )
         {
             return true;
@@ -946,24 +1438,23 @@ var cornerstone = (function (cornerstone) {
         lastRenderedViewport.windowCenter = enabledElement.viewport.voi.windowCenter;
         lastRenderedViewport.windowWidth = enabledElement.viewport.voi.windowWidth;
         lastRenderedViewport.invert = enabledElement.viewport.invert;
+        lastRenderedViewport.rotation = enabledElement.viewport.rotation;
+        lastRenderedViewport.hflip = enabledElement.viewport.hflip;
+        lastRenderedViewport.vflip = enabledElement.viewport.vflip;
     }
 
     // Module exports
+    cornerstone.rendering.colorImage = renderColorImage;
     cornerstone.renderColorImage = renderColorImage;
-
-    return cornerstone;
 }(cornerstone));
+
 /**
  * This module is responsible for drawing a grayscale imageß
  */
 
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     var grayscaleRenderCanvas = document.createElement('canvas');
     var grayscaleRenderCanvasContext;
@@ -1010,7 +1501,10 @@ var cornerstone = (function (cornerstone) {
         if(image.imageId !== lastRenderedImageId ||
             lastRenderedViewport.windowCenter !== enabledElement.viewport.voi.windowCenter ||
             lastRenderedViewport.windowWidth !== enabledElement.viewport.voi.windowWidth ||
-            lastRenderedViewport.invert !== enabledElement.viewport.invert
+            lastRenderedViewport.invert !== enabledElement.viewport.invert ||
+            lastRenderedViewport.rotation !== enabledElement.viewport.rotation ||
+            lastRenderedViewport.hflip !== enabledElement.viewport.hflip ||
+            lastRenderedViewport.vflip !== enabledElement.viewport.vflip
             )
         {
             return true;
@@ -1087,25 +1581,24 @@ var cornerstone = (function (cornerstone) {
         lastRenderedViewport.windowCenter = enabledElement.viewport.voi.windowCenter;
         lastRenderedViewport.windowWidth = enabledElement.viewport.voi.windowWidth;
         lastRenderedViewport.invert = enabledElement.viewport.invert;
+        lastRenderedViewport.rotation = enabledElement.viewport.rotation;
+        lastRenderedViewport.hflip = enabledElement.viewport.hflip;
+        lastRenderedViewport.vflip = enabledElement.viewport.vflip;
     }
 
     // Module exports
+    cornerstone.rendering.grayscaleImage = renderGrayscaleImage;
     cornerstone.renderGrayscaleImage = renderGrayscaleImage;
 
-    return cornerstone;
 }(cornerstone));
 
 /**
  * This module is responsible for drawing an image to an enabled elements canvas element
  */
 
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * API function to draw a standard web image (PNG, JPG) to an enabledImage
@@ -1158,20 +1651,16 @@ var cornerstone = (function (cornerstone) {
     }
 
     // Module exports
+    cornerstone.rendering.webImage = renderWebImage;
     cornerstone.renderWebImage = renderWebImage;
 
-    return cornerstone;
 }(cornerstone));
 /**
  * This module is responsible for enabling an element to display images with cornerstone
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     function setCanvasSize(element, canvas)
     {
@@ -1228,20 +1717,15 @@ var cornerstone = (function (cornerstone) {
     // module/private exports
     cornerstone.resize = resize;
 
-    return cornerstone;
 }(cornerstone));
 /**
  * This module contains a function that will set the canvas context to the pixel coordinates system
  * making it easy to draw geometry on the image
  */
 
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * Sets the canvas context transformation matrix to the pixel coordinate system.  This allows
@@ -1259,138 +1743,64 @@ var cornerstone = (function (cornerstone) {
             throw "setToPixelCoordinateSystem: parameter context must not be undefined";
         }
 
-        // reset the transformation matrix
-        context.setTransform(1, 0, 0, 1, 0, 0);
-        // move origin to center of canvas
-        context.translate(enabledElement.canvas.width/2, enabledElement.canvas.height / 2);
-
-        // apply the scale
-        var widthScale = enabledElement.viewport.scale;
-        var heightScale = enabledElement.viewport.scale;
-        if(enabledElement.image.rowPixelSpacing < enabledElement.image.columnPixelSpacing) {
-            widthScale = widthScale * (enabledElement.image.columnPixelSpacing / enabledElement.image.rowPixelSpacing);
-        }
-        else if(enabledElement.image.columnPixelSpacing < enabledElement.image.rowPixelSpacing) {
-            heightScale = heightScale * (enabledElement.image.rowPixelSpacing / enabledElement.image.columnPixelSpacing);
-        }
-        context.scale(widthScale, heightScale);
-
-        // apply the pan offset
-        context.translate(enabledElement.viewport.translation.x, enabledElement.viewport.translation.y);
-
-        if(scale === undefined) {
-            scale = 1.0;
-        } else {
-            // apply the font scale
-            context.scale(scale, scale);
-        }
-
-        // translate the origin back to the corner of the image so the event handlers can draw in image coordinate system
-        context.translate(-enabledElement.image.width / 2 / scale, -enabledElement.image.height/ 2 / scale);
+        var transform = cornerstone.internal.calculateTransform(enabledElement, scale);
+        context.setTransform(transform.m[0],transform.m[1],transform.m[2],transform.m[3],transform.m[4],transform.m[5],transform.m[6]);
     }
 
     // Module exports
     cornerstone.setToPixelCoordinateSystem = setToPixelCoordinateSystem;
-
-    return cornerstone;
 }(cornerstone));
 /**
- * This module contains a function to convert stored pixel values to display pixel values using a LUT
+ * This module contains functions to deal with getting and setting the viewport for an enabled element
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
 
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
+    function setViewport(element, viewport) {
 
-    /**
-     * This function transforms stored pixel values into a canvas image data buffer
-     * by using a LUT.  This is the most performance sensitive code in cornerstone and
-     * we use a special trick to make this go as fast as possible.  Specifically we
-     * use the alpha channel only to control the luminance rather than the red, green and
-     * blue channels which makes it over 3x faster.  The canvasImageDataData buffer needs
-     * to be previously filled with white pixels.
-     *
-     * NOTE: Attribution would be appreciated if you use this technique!
-     *
-     * @param pixelData the pixel data
-     * @param lut the lut
-     * @param canvasImageDataData a canvasImgageData.data buffer filled with white pixels
-     */
-    function storedPixelDataToCanvasImageData(image, lut, canvasImageDataData)
-    {
-        var pixelData = image.getPixelData();
-        var minPixelValue = image.minPixelValue;
-        var canvasImageDataIndex = 3;
-        var storedPixelDataIndex = 0;
-        var localNumPixels = pixelData.length;
-        var localPixelData = pixelData;
-        var localLut = lut;
-        var localCanvasImageDataData = canvasImageDataData;
-        // NOTE: As of Nov 2014, most javascript engines have lower performance when indexing negative indexes.
-        // We have a special code path for this case that improves performance.  Thanks to @jpambrun for this enhancement
-        if(minPixelValue < 0){
-            while(storedPixelDataIndex < localNumPixels) {
-                localCanvasImageDataData[canvasImageDataIndex] = localLut[localPixelData[storedPixelDataIndex++] + (-minPixelValue)]; // alpha
-                canvasImageDataIndex += 4;
-            }
-        }else{
-            while(storedPixelDataIndex < localNumPixels) {
-                localCanvasImageDataData[canvasImageDataIndex] = localLut[localPixelData[storedPixelDataIndex++]]; // alpha
-                canvasImageDataIndex += 4;
-            }
+        var enabledElement = cornerstone.getEnabledElement(element);
+
+        enabledElement.viewport.scale = viewport.scale;
+        enabledElement.viewport.translation.x = viewport.translation.x;
+        enabledElement.viewport.translation.y = viewport.translation.y;
+        enabledElement.viewport.voi.windowWidth = viewport.voi.windowWidth;
+        enabledElement.viewport.voi.windowCenter = viewport.voi.windowCenter;
+        enabledElement.viewport.invert = viewport.invert;
+        enabledElement.viewport.pixelReplication = viewport.pixelReplication;
+        enabledElement.viewport.rotation = viewport.rotation;
+        enabledElement.viewport.hflip = viewport.hflip;
+        enabledElement.viewport.vflip = viewport.vflip;
+
+        // prevent window width from being < 1
+        if(enabledElement.viewport.voi.windowWidth < 1) {
+            enabledElement.viewport.voi.windowWidth = 1;
         }
-    }
-
-    function storedColorPixelDataToCanvasImageData(image, lut, canvasImageDataData)
-    {
-        var minPixelValue = image.minPixelValue;
-        var canvasImageDataIndex = 0;
-        var storedPixelDataIndex = 0;
-        var numPixels = image.width * image.height * 4;
-        var storedPixelData = image.getPixelData();
-        var localLut = lut;
-        var localCanvasImageDataData = canvasImageDataData;
-        // NOTE: As of Nov 2014, most javascript engines have lower performance when indexing negative indexes.
-        // We have a special code path for this case that improves performance.  Thanks to @jpambrun for this enhancement
-        if(minPixelValue < 0){
-            while(storedPixelDataIndex < numPixels) {
-                localCanvasImageDataData[canvasImageDataIndex++] = localLut[storedPixelData[storedPixelDataIndex++] + (-minPixelValue)]; // red
-                localCanvasImageDataData[canvasImageDataIndex++] = localLut[storedPixelData[storedPixelDataIndex++] + (-minPixelValue)]; // green
-                localCanvasImageDataData[canvasImageDataIndex] = localLut[storedPixelData[storedPixelDataIndex] + (-minPixelValue)]; // blue
-                storedPixelDataIndex+=2;
-                canvasImageDataIndex+=2;
-            }
-        }else{
-            while(storedPixelDataIndex < numPixels) {
-                localCanvasImageDataData[canvasImageDataIndex++] = localLut[storedPixelData[storedPixelDataIndex++]]; // red
-                localCanvasImageDataData[canvasImageDataIndex++] = localLut[storedPixelData[storedPixelDataIndex++]]; // green
-                localCanvasImageDataData[canvasImageDataIndex] = localLut[storedPixelData[storedPixelDataIndex]]; // blue
-                storedPixelDataIndex+=2;
-                canvasImageDataIndex+=2;
-            }
+        // prevent scale from getting too small
+        if(enabledElement.viewport.scale < 0.0001) {
+            enabledElement.viewport.scale = 0.25;
         }
+
+        if(enabledElement.viewport.rotation===360 || enabledElement.viewport.rotation===-360) {
+            enabledElement.viewport.rotation = 0;
+        }
+
+        // Force the image to be updated since the viewport has been modified
+        cornerstone.updateImage(element);
     }
 
-    // Module exports
-    cornerstone.storedPixelDataToCanvasImageData = storedPixelDataToCanvasImageData;
-    cornerstone.storedColorPixelDataToCanvasImageData = storedColorPixelDataToCanvasImageData;
 
-   return cornerstone;
+    // module/private exports
+    cornerstone.setViewport = setViewport;
+
 }(cornerstone));
 
 /**
  * This module contains a function to immediately redraw an image
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * Forces the image to be updated/redrawn for the specified enabled element
@@ -1409,75 +1819,4 @@ var cornerstone = (function (cornerstone) {
     // module exports
     cornerstone.updateImage = updateImage;
 
-    return cornerstone;
-}(cornerstone));
-/**
- * This module contains functions to deal with getting and setting the viewport for an enabled element
- */
-var cornerstone = (function (cornerstone) {
-
-    "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
-
-    function setViewport(element, viewport) {
-
-        var enabledElement = cornerstone.getEnabledElement(element);
-
-        enabledElement.viewport.scale = viewport.scale;
-        enabledElement.viewport.translation.x = viewport.translation.x;
-        enabledElement.viewport.translation.y = viewport.translation.y;
-        enabledElement.viewport.voi.windowWidth = viewport.voi.windowWidth;
-        enabledElement.viewport.voi.windowCenter = viewport.voi.windowCenter;
-        enabledElement.viewport.invert = viewport.invert;
-        enabledElement.viewport.pixelReplication = viewport.pixelReplication;
-
-        // prevent window width from being < 1
-        if(enabledElement.viewport.voi.windowWidth < 1) {
-            enabledElement.viewport.voi.windowWidth = 1;
-        }
-        // prevent scale from getting too small
-        if(enabledElement.viewport.scale < 0.0001) {
-            enabledElement.viewport.scale = 0.25;
-        }
-
-        // Force the image to be updated since the viewport has been modified
-        cornerstone.updateImage(element);
-    }
-
-    /**
-     * Returns the viewport for the specified enabled element
-     * @param element
-     * @returns {*}
-     */
-    function getViewport(element) {
-        var enabledElement = cornerstone.getEnabledElement(element);
-
-        var viewport = enabledElement.viewport;
-        if(viewport === undefined) {
-            return undefined;
-        }
-        return {
-            scale : viewport.scale,
-            translation : {
-                x : viewport.translation.x,
-                y : viewport.translation.y
-            },
-            voi : {
-                windowWidth: viewport.voi.windowWidth,
-                windowCenter : viewport.voi.windowCenter
-            },
-            invert : viewport.invert,
-            pixelReplication: viewport.pixelReplication
-        };
-    }
-
-
-    // module/private exports
-    cornerstone.getViewport = getViewport;
-    cornerstone.setViewport=setViewport;
-
-    return cornerstone;
 }(cornerstone));

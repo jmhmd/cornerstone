@@ -3,13 +3,9 @@
  * a canvas element to display it in
  *
  */
-var cornerstone = (function (cornerstone) {
+(function (cornerstone) {
 
     "use strict";
-
-    if(cornerstone === undefined) {
-        cornerstone = {};
-    }
 
     /**
      * Creates a new viewport object containing default values for the image and canvas
@@ -35,7 +31,10 @@ var cornerstone = (function (cornerstone) {
                 windowCenter: image.windowCenter,
             },
             invert: image.invert,
-            pixelReplication: false
+            pixelReplication: false,
+            rotation: 0,
+            hflip: false,
+            vflip: false
         };
 
         // fit image to window
@@ -51,7 +50,6 @@ var cornerstone = (function (cornerstone) {
     }
 
     // module/private exports
+    cornerstone.internal.getDefaultViewport = getDefaultViewport;
     cornerstone.getDefaultViewport = getDefaultViewport;
-
-    return cornerstone;
 }(cornerstone));
